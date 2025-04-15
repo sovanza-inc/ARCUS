@@ -1,0 +1,22 @@
+{
+  "version": 2,
+  "buildCommand": "next build",
+  "functions": {
+    "src/app/api/canvas-projects/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/canvas/doors-windows/route.ts": {
+      "maxDuration": 60
+    }
+  },
+  "regions": ["sin1"],
+  "headers": [
+    {
+      "source": "/api/canvas/doors-windows",
+      "headers": [
+        { "key": "Connection", "value": "keep-alive" },
+        { "key": "Keep-Alive", "value": "timeout=120" }
+      ]
+    }
+  ]
+}
