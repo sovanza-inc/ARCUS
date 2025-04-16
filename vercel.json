@@ -10,6 +10,18 @@
     },
     "src/app/api/canvas/exclusion-zones/route.ts": {
       "maxDuration": 300
+    },
+    "src/app/api/canvas/room-area/route.ts": {
+      "maxDuration": 300
+    },
+    "src/app/api/canvas/room-n/route.ts": {
+      "maxDuration": 300
+    },
+    "src/app/api/canvas/wall-color/route.ts": {
+      "maxDuration": 300
+    },
+    "src/app/api/canvas/fire-alarm/route.ts": {
+      "maxDuration": 300
     }
   },
   "regions": ["sin1"],
@@ -23,6 +35,34 @@
     },
     {
       "source": "/api/canvas/exclusion-zones",
+      "headers": [
+        { "key": "Connection", "value": "keep-alive" },
+        { "key": "Keep-Alive", "value": "timeout=300" }
+      ]
+    },
+    {
+      "source": "/api/canvas/room-area",
+      "headers": [
+        { "key": "Connection", "value": "keep-alive" },
+        { "key": "Keep-Alive", "value": "timeout=300" }
+      ]
+    },
+    {
+      "source": "/api/canvas/room-n",
+      "headers": [
+        { "key": "Connection", "value": "keep-alive" },
+        { "key": "Keep-Alive", "value": "timeout=300" }
+      ]
+    },
+    {
+      "source": "/api/canvas/wall-color",
+      "headers": [
+        { "key": "Connection", "value": "keep-alive" },
+        { "key": "Keep-Alive", "value": "timeout=300" }
+      ]
+    },
+    {
+      "source": "/api/canvas/fire-alarm",
       "headers": [
         { "key": "Connection", "value": "keep-alive" },
         { "key": "Keep-Alive", "value": "timeout=300" }
