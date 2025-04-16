@@ -7,6 +7,9 @@
     },
     "src/app/api/canvas/doors-windows/route.ts": {
       "maxDuration": 60
+    },
+    "src/app/api/canvas/exclusion-zones/route.ts": {
+      "maxDuration": 300
     }
   },
   "regions": ["sin1"],
@@ -16,6 +19,13 @@
       "headers": [
         { "key": "Connection", "value": "keep-alive" },
         { "key": "Keep-Alive", "value": "timeout=120" }
+      ]
+    },
+    {
+      "source": "/api/canvas/exclusion-zones",
+      "headers": [
+        { "key": "Connection", "value": "keep-alive" },
+        { "key": "Keep-Alive", "value": "timeout=300" }
       ]
     }
   ]
