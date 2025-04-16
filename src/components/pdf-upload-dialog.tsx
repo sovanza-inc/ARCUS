@@ -158,8 +158,8 @@ export function PDFUploadDialog({ className }: PDFUploadDialogProps) {
 
       const fileName = file.name.replace(/\.pdf$/i, '');
 
-      if (file.size > 50 * 1024 * 1024) {
-        throw new Error("File size too large. Please upload a PDF smaller than 50MB.");
+      if (file.size > 1 * 1024 * 1024) {
+        throw new Error("File size too large. Please upload a PDF smaller than 1MB.");
       }
 
       const arrayBuffer = await file.arrayBuffer();
@@ -207,19 +207,19 @@ export function PDFUploadDialog({ className }: PDFUploadDialogProps) {
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        {/* <Button 
+        <Button 
           variant="outline"
           className={className}
         >
           Upload PDF
-        </Button> */}
+        </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Create New Project</DialogTitle>
           <DialogDescription>
             Upload your project in PDF format. We&apos;ll convert it to an editable canvas project.
-            Maximum file size: 50MB.
+            Maximum file size: 01MB.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">

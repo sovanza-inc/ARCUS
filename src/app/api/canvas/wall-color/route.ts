@@ -6,15 +6,9 @@ import { canvasProjects } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { CanvasData } from "@/types/canvas";
 
-interface DetectionResults {
+interface WallColorResults {
   status: string;
-  complete_doors_and_windows: string;
-  single_doors: string;
-  double_doors: string;
-  windows: string;
-  single_doors_and_windows: string;
-  single_doors_and_double_doors: string;
-  double_doors_and_windows: string;
+  wall_color_link: string;
 }
 
 export async function POST(request: Request) {
@@ -75,8 +69,8 @@ export async function POST(request: Request) {
     const project = projects[0];
     const canvasData = project.canvasData as CanvasData;
 
-    // 3. Call the external API for detection
-    const apiResponse = await fetch('https://arcus.sovanza.org/arcus/arcus_ai', {
+    // 3. Call the external API for wall color detection
+    const apiResponse = await fetch('https://arcus.sovanza.org/arcus/wall_color', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -88,42 +82,29 @@ export async function POST(request: Request) {
       throw new Error(`API request failed with status: ${apiResponse.status}`);
     }
 
-    const detectionResults: DetectionResults = await apiResponse.json();
+    const detectionResults: WallColorResults = await apiResponse.json();
 
     // 4. Update the project with the new canvas data
     const updatedCanvasData: CanvasData = {
       ...canvasData,
       // Keep original pages array unchanged
       pages: canvasData.pages || [],
-      // Ensure arrays exist
-      complete_doors_and_windows: [...(canvasData.complete_doors_and_windows || [])],
-      single_doors: [...(canvasData.single_doors || [])],
-      double_doors: [...(canvasData.double_doors || [])],
-      windows: [...(canvasData.windows || [])],
-      single_doors_and_windows: [...(canvasData.single_doors_and_windows || [])],
-      single_doors_and_double_doors: [...(canvasData.single_doors_and_double_doors || [])],
-      double_doors_and_windows: [...(canvasData.double_doors_and_windows || [])]
+      // Ensure wall_color_processing array exists
+      wall_color_processing: [...(canvasData.wall_color_processing || [])]
     };
 
-    // Ensure arrays have enough slots
-    while (updatedCanvasData.complete_doors_and_windows.length <= currentPage) {
-      updatedCanvasData.complete_doors_and_windows.push('');
-      updatedCanvasData.single_doors.push('');
-      updatedCanvasData.double_doors.push('');
-      updatedCanvasData.windows.push('');
-      updatedCanvasData.single_doors_and_windows.push('');
-      updatedCanvasData.single_doors_and_double_doors.push('');
-      updatedCanvasData.double_doors_and_windows.push('');
+    // Ensure array has enough slots
+    while (updatedCanvasData.wall_color_processing.length <= currentPage) {
+      updatedCanvasData.wall_color_processing.push('');
     }
 
-    // Store detection URLs at the correct index
-    updatedCanvasData.complete_doors_and_windows[currentPage] = detectionResults.complete_doors_and_windows;
-    updatedCanvasData.single_doors[currentPage] = detectionResults.single_doors;
-    updatedCanvasData.double_doors[currentPage] = detectionResults.double_doors;
-    updatedCanvasData.windows[currentPage] = detectionResults.windows;
-    updatedCanvasData.single_doors_and_windows[currentPage] = detectionResults.single_doors_and_windows;
-    updatedCanvasData.single_doors_and_double_doors[currentPage] = detectionResults.single_doors_and_double_doors;
-    updatedCanvasData.double_doors_and_windows[currentPage] = detectionResults.double_doors_and_windows;
+    // Initialize array with null if it doesn't exist
+    if (!updatedCanvasData.wall_color_processing) {
+      updatedCanvasData.wall_color_processing = [];
+    }
+
+    // Store detection URL at the correct index
+    updatedCanvasData.wall_color_processing[currentPage] = detectionResults.wall_color_link;
 
     await db
       .update(canvasProjects)
@@ -139,7 +120,7 @@ export async function POST(request: Request) {
       detectionResults: detectionResults
     });
   } catch (error) {
-    console.error("Error in doors-windows detection:", error);
+    console.error("Error in wall color detection:", error);
     return NextResponse.json(
       { 
         success: false, 

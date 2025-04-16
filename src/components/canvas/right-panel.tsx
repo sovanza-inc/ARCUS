@@ -7,6 +7,7 @@ import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { usePDFPageStore } from "@/store/pdf-page-store";
 
 interface APIOption {
@@ -232,29 +233,452 @@ export default function RightPanel() {
   
   const handleDoorsWindowsDetection = async (enabled: boolean) => {
     if (!enabled) return;
-    await simulateProcessing("doors-windows");
+    
+    try {
+      // First check if we have data in the arrays
+      const response = await fetch(`/api/canvas-projects/${projectId}`);
+      if (!response.ok) throw new Error('Failed to fetch project data');
+      
+      const project = await response.json();
+      const hasExistingData = project.canvasData?.complete_doors_and_windows?.[currentPage] ||
+                             project.canvasData?.single_doors?.[currentPage] ||
+                             project.canvasData?.double_doors?.[currentPage] ||
+                             project.canvasData?.windows?.[currentPage];
+      
+      setProcessingFeature("doors-windows");
+      
+      try {
+        if (hasExistingData) {
+          // For seed data or existing data, simulate processing
+          await new Promise(resolve => setTimeout(resolve, 60000)); // 1 minute delay
+          window.dispatchEvent(new CustomEvent('doorsWindowsDetectionComplete'));
+          return;
+        }
+
+        // Get the current page's image URL
+        const imageUrl = project.canvasData.pages[currentPage];
+        if (!imageUrl) {
+          throw new Error('No image found for current page');
+        }
+
+        const apiResponse = await fetch(`/api/canvas/doors-windows`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            projectId,
+            imageUrl,
+            currentPage
+          })
+        });
+        
+        if (!apiResponse.ok) throw new Error('API call failed');
+        
+        const apiResult = await apiResponse.json();
+        
+        // Get existing arrays or initialize them
+        const existingData = {
+          complete_doors_and_windows: [...(project.canvasData.complete_doors_and_windows || [])],
+          single_doors: [...(project.canvasData.single_doors || [])],
+          double_doors: [...(project.canvasData.double_doors || [])],
+          windows: [...(project.canvasData.windows || [])],
+          single_doors_and_windows: [...(project.canvasData.single_doors_and_windows || [])],
+          single_doors_and_double_doors: [...(project.canvasData.single_doors_and_double_doors || [])],
+          double_doors_and_windows: [...(project.canvasData.double_doors_and_windows || [])]
+        };
+
+        // Ensure arrays have enough slots
+        while (existingData.complete_doors_and_windows.length <= currentPage) {
+          existingData.complete_doors_and_windows.push('');
+          existingData.single_doors.push('');
+          existingData.double_doors.push('');
+          existingData.windows.push('');
+          existingData.single_doors_and_windows.push('');
+          existingData.single_doors_and_double_doors.push('');
+          existingData.double_doors_and_windows.push('');
+        }
+
+        // Update arrays at the current page index
+        existingData.complete_doors_and_windows[currentPage] = apiResult.detectionResults.complete_doors_and_windows;
+        existingData.single_doors[currentPage] = apiResult.detectionResults.single_doors;
+        existingData.double_doors[currentPage] = apiResult.detectionResults.double_doors;
+        existingData.windows[currentPage] = apiResult.detectionResults.windows;
+        existingData.single_doors_and_windows[currentPage] = apiResult.detectionResults.single_doors_and_windows;
+        existingData.single_doors_and_double_doors[currentPage] = apiResult.detectionResults.single_doors_and_double_doors;
+        existingData.double_doors_and_windows[currentPage] = apiResult.detectionResults.double_doors_and_windows;
+
+        // Update the project with the modified arrays
+        await fetch(`/api/canvas-projects/${projectId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            canvasData: {
+              ...project.canvasData,
+              ...existingData
+            }
+          })
+        });
+        
+        // Dispatch event to show the results
+        window.dispatchEvent(new CustomEvent('doorsWindowsDetectionComplete'));
+      } catch (error) {
+        console.error('Doors and windows detection API error:', error);
+        toast.error('Failed to process doors and windows detection');
+      } finally {
+        setProcessingFeature(null);
+      }
+    } catch (error) {
+      console.error('Error in doors and windows detection:', error);
+      toast.error('Failed to process doors and windows detection');
+      setProcessingFeature(null);
+    }
   };
   
   const handleWallsDetection = async (enabled: boolean) => {
     if (!enabled) return;
-    await simulateProcessing("walls-detection");
+    
+    try {
+      // First check if we have data in the arrays
+      const response = await fetch(`/api/canvas-projects/${projectId}`);
+      if (!response.ok) throw new Error('Failed to fetch project data');
+      
+      const project = await response.json();
+      const hasExistingData = project.canvasData?.wall_color_processing?.[currentPage];
+      
+      setProcessingFeature("walls-detection");
+      
+      try {
+        if (hasExistingData) {
+          // For seed data or existing data, simulate processing
+          await new Promise(resolve => setTimeout(resolve, 60000)); // 1 minute delay
+          window.dispatchEvent(new CustomEvent('wallsDetectionComplete'));
+          return;
+        }
+
+        // Get the current page's image URL
+        const imageUrl = project.canvasData.pages[currentPage];
+        if (!imageUrl) {
+          throw new Error('No image found for current page');
+        }
+
+        const apiResponse = await fetch(`/api/canvas/wall-color`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            projectId,
+            imageUrl,
+            currentPage
+          })
+        });
+        
+        if (!apiResponse.ok) throw new Error('API call failed');
+        
+        const apiResult = await apiResponse.json();
+        
+        // Get existing array or initialize it with nulls
+        const existingData = {
+          wall_color_processing: [...(project.canvasData.wall_color_processing || [null])]
+        };
+
+        // Ensure array has enough slots
+        while (existingData.wall_color_processing.length <= currentPage) {
+          existingData.wall_color_processing.push(null);
+        }
+
+        // Update array at the current page index
+        existingData.wall_color_processing[currentPage] = apiResult.detectionResults.wall_color_link;
+
+        // Update the project with the modified array
+        await fetch(`/api/canvas-projects/${projectId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            canvasData: {
+              ...project.canvasData,
+              ...existingData
+            }
+          })
+        });
+        
+        // Dispatch event to show the results
+        window.dispatchEvent(new CustomEvent('wallsDetectionComplete'));
+      } catch (error) {
+        console.error('Wall color detection API error:', error);
+        toast.error('Failed to process wall color detection');
+      } finally {
+        setProcessingFeature(null);
+      }
+    } catch (error) {
+      console.error('Error in wall color detection:', error);
+      toast.error('Failed to process wall color detection');
+    }
   };
-  
+
   const handleRoomAreaDetection = async (enabled: boolean) => {
     if (!enabled) return;
-    await simulateProcessing("room-detection");
-  };
-  
-  const handleRoomNumberDetection = async (enabled: boolean) => {
-    if (!enabled) return;
-    await simulateProcessing("room-number-detection");
+    
+    try {
+      // First check if we have data in the arrays
+      const response = await fetch(`/api/canvas-projects/${projectId}`);
+      if (!response.ok) throw new Error('Failed to fetch project data');
+      
+      const project = await response.json();
+      const hasExistingData = project.canvasData?.room_area_processing?.[currentPage];
+      
+      setProcessingFeature("room-detection");
+      
+      try {
+        if (hasExistingData) {
+          // For seed data or existing data, simulate processing
+          await new Promise(resolve => setTimeout(resolve, 60000)); // 1 minute delay
+          window.dispatchEvent(new CustomEvent('roomAreaDetectionComplete'));
+          return;
+        }
+
+        // Get the current page's image URL
+        const imageUrl = project.canvasData.pages[currentPage];
+        if (!imageUrl) {
+          throw new Error('No image found for current page');
+        }
+
+        const apiResponse = await fetch(`/api/canvas/room-area`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            projectId,
+            imageUrl,
+            currentPage
+          })
+        });
+        
+        if (!apiResponse.ok) throw new Error('API call failed');
+        
+        const apiResult = await apiResponse.json();
+        console.log('Room area detection response:', apiResult); // Log to verify the red line image
+        
+        // Get existing array or initialize it with nulls
+        const existingData = {
+          room_area_processing: [...(project.canvasData.room_area_processing || [null])]
+        };
+
+        // Ensure array has enough slots
+        while (existingData.room_area_processing.length <= currentPage) {
+          existingData.room_area_processing.push(null);
+        }
+
+        // Update array at the current page index
+        existingData.room_area_processing[currentPage] = apiResult.detectionResults.link_room_area_processing;
+
+        // Update the project with the modified array
+        await fetch(`/api/canvas-projects/${projectId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            canvasData: {
+              ...project.canvasData,
+              ...existingData
+            }
+          })
+        });
+        
+        // Dispatch event to show the results
+        window.dispatchEvent(new CustomEvent('roomAreaDetectionComplete'));
+      } catch (error) {
+        console.error('Room area detection API error:', error);
+        toast.error('Failed to process room area detection');
+      } finally {
+        setProcessingFeature(null);
+      }
+    } catch (error) {
+      console.error('Error in room area detection:', error);
+      toast.error('Failed to process room area detection');
+      setProcessingFeature(null);
+    }
   };
   
   const handleExclusionZonesDetection = async (enabled: boolean) => {
     if (!enabled) return;
-    await simulateProcessing("inclusive-exclusive-zones");
+    
+    try {
+      // First check if we have data in the arrays
+      const response = await fetch(`/api/canvas-projects/${projectId}`);
+      if (!response.ok) throw new Error('Failed to fetch project data');
+      
+      const project = await response.json();
+      const hasExistingData = project.canvasData?.exclusion_Zones_processing?.[currentPage];
+      
+      setProcessingFeature("inclusive-exclusive-zones");
+      
+      try {
+        if (hasExistingData) {
+          // For seed data or existing data, simulate processing
+          await new Promise(resolve => setTimeout(resolve, 60000)); // 1 minute delay
+          window.dispatchEvent(new CustomEvent('exclusionZonesDetectionComplete'));
+          return;
+        }
+
+        // Get the current page's image URL
+        const imageUrl = project.canvasData.pages[currentPage];
+        if (!imageUrl) {
+          throw new Error('No image found for current page');
+        }
+
+        const apiResponse = await fetch(`/api/canvas/exclusion-zones`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            projectId,
+            imageUrl,
+            currentPage
+          })
+        });
+        
+        if (!apiResponse.ok) throw new Error('API call failed');
+        
+        const apiResult = await apiResponse.json();
+        console.log('Exclusion zones detection response:', apiResult); // Log to verify the response
+        
+        // Get existing array or initialize it with empty strings
+        const existingData = {
+          exclusion_Zones_processing: [...(project.canvasData.exclusion_Zones_processing || [''])]
+        };
+
+        // Ensure array has enough slots
+        while (existingData.exclusion_Zones_processing.length <= currentPage) {
+          existingData.exclusion_Zones_processing.push('');
+        }
+
+        // Update array at the current page index
+        existingData.exclusion_Zones_processing[currentPage] = apiResult.detectionResults.link_exclusion_Zones_processing;
+
+        // Update the project with the modified array
+        await fetch(`/api/canvas-projects/${projectId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            canvasData: {
+              ...project.canvasData,
+              ...existingData
+            }
+          })
+        });
+        
+        // Dispatch event to show the results
+        window.dispatchEvent(new CustomEvent('exclusionZonesDetectionComplete'));
+      } catch (error) {
+        console.error('Exclusion zones detection API error:', error);
+        toast.error('Failed to process exclusion zones detection');
+      } finally {
+        setProcessingFeature(null);
+      }
+    } catch (error) {
+      console.error('Error in exclusion zones detection:', error);
+      toast.error('Failed to process exclusion zones detection');
+      setProcessingFeature(null);
+    }
   };
   
+  const handleRoomNumberDetection = async (enabled: boolean) => {
+    if (!enabled) return;
+    
+    try {
+      // First check if we have data in the arrays
+      const response = await fetch(`/api/canvas-projects/${projectId}`);
+      if (!response.ok) throw new Error('Failed to fetch project data');
+      
+      const project = await response.json();
+      const hasExistingData = project.canvasData?.room_n_processing?.[currentPage];
+      
+      setProcessingFeature("room-number-detection");
+      
+      try {
+        if (hasExistingData) {
+          // For seed data or existing data, simulate processing
+          await new Promise(resolve => setTimeout(resolve, 60000)); // 1 minute delay
+          window.dispatchEvent(new CustomEvent('roomNumberDetectionComplete'));
+          return;
+        }
+
+        // Get the current page's image URL
+        const imageUrl = project.canvasData.pages[currentPage];
+        if (!imageUrl) {
+          throw new Error('No image found for current page');
+        }
+
+        const apiResponse = await fetch(`/api/canvas/room-n`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            projectId,
+            imageUrl,
+            currentPage
+          })
+        });
+        
+        if (!apiResponse.ok) throw new Error('API call failed');
+        
+        const apiResult = await apiResponse.json();
+        console.log('Room number detection response:', apiResult); // Log to verify the response
+        
+        // Get existing array or initialize it with empty strings
+        const existingData = {
+          room_n_processing: [...(project.canvasData.room_n_processing || [''])]
+        };
+
+        // Ensure array has enough slots
+        while (existingData.room_n_processing.length <= currentPage) {
+          existingData.room_n_processing.push('');
+        }
+
+        // Update array at the current page index
+        existingData.room_n_processing[currentPage] = apiResult.detectionResults.link_room_n_processing;
+
+        // Update the project with the modified array
+        await fetch(`/api/canvas-projects/${projectId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            canvasData: {
+              ...project.canvasData,
+              ...existingData
+            }
+          })
+        });
+        
+        // Dispatch event to show the results
+        window.dispatchEvent(new CustomEvent('roomNumberDetectionComplete'));
+      } catch (error) {
+        console.error('Room number detection API error:', error);
+        toast.error('Failed to process room number detection');
+      } finally {
+        setProcessingFeature(null);
+      }
+    } catch (error) {
+      console.error('Error in room number detection:', error);
+      toast.error('Failed to process room number detection');
+      setProcessingFeature(null);
+    }
+  };
+
   const handleFireAlarmDetection = async (enabled: boolean) => {
     if (!enabled) return;
     await simulateProcessing("fire-alarm");
