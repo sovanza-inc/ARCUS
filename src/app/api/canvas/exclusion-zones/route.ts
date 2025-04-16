@@ -98,6 +98,10 @@ export async function POST(request: Request) {
     const canvasData = project.canvasData as CanvasData;
 
     // 4. Call the external API for exclusion zones detection
+    // Set up AbortController for timeout
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 120000); // 2 minutes timeout
+
     const apiResponse = await fetch('https://arcus.sovanza.org/arcus/exclusion_Zones', {
       method: 'POST',
       headers: {
@@ -107,7 +111,10 @@ export async function POST(request: Request) {
         image_url: modifiedCloudinaryUrl,
         length: 5
       }),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeout); // Clear the timeout
 
     if (!apiResponse.ok) {
       throw new Error(`API request failed with status: ${apiResponse.status}`);
