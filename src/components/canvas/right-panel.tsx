@@ -7,6 +7,7 @@ import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { usePDFPageStore } from "@/store/pdf-page-store";
 
 interface APIOption {
@@ -232,7 +233,108 @@ export default function RightPanel() {
   
   const handleDoorsWindowsDetection = async (enabled: boolean) => {
     if (!enabled) return;
-    await simulateProcessing("doors-windows");
+    
+    try {
+      // First check if we have data in the arrays
+      const response = await fetch(`/api/canvas-projects/${projectId}`);
+      if (!response.ok) throw new Error('Failed to fetch project data');
+      
+      const project = await response.json();
+      const hasExistingData = project.canvasData?.complete_doors_and_windows?.[currentPage] ||
+                             project.canvasData?.single_doors?.[currentPage] ||
+                             project.canvasData?.double_doors?.[currentPage] ||
+                             project.canvasData?.windows?.[currentPage];
+      
+      setProcessingFeature("doors-windows");
+      
+      try {
+        if (hasExistingData) {
+          // For seed data or existing data, simulate processing
+          await new Promise(resolve => setTimeout(resolve, 60000)); // 1 minute delay
+          window.dispatchEvent(new CustomEvent('doorsWindowsDetectionComplete'));
+          return;
+        }
+
+        // Get the current page's image URL
+        const imageUrl = project.canvasData.pages[currentPage];
+        if (!imageUrl) {
+          throw new Error('No image found for current page');
+        }
+
+        const apiResponse = await fetch(`/api/canvas/doors-windows`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            projectId,
+            imageUrl,
+            currentPage
+          })
+        });
+        
+        if (!apiResponse.ok) throw new Error('API call failed');
+        
+        const apiResult = await apiResponse.json();
+        
+        // Get existing arrays or initialize them
+        const existingData = {
+          complete_doors_and_windows: [...(project.canvasData.complete_doors_and_windows || [])],
+          single_doors: [...(project.canvasData.single_doors || [])],
+          double_doors: [...(project.canvasData.double_doors || [])],
+          windows: [...(project.canvasData.windows || [])],
+          single_doors_and_windows: [...(project.canvasData.single_doors_and_windows || [])],
+          single_doors_and_double_doors: [...(project.canvasData.single_doors_and_double_doors || [])],
+          double_doors_and_windows: [...(project.canvasData.double_doors_and_windows || [])]
+        };
+
+        // Ensure arrays have enough slots
+        while (existingData.complete_doors_and_windows.length <= currentPage) {
+          existingData.complete_doors_and_windows.push('');
+          existingData.single_doors.push('');
+          existingData.double_doors.push('');
+          existingData.windows.push('');
+          existingData.single_doors_and_windows.push('');
+          existingData.single_doors_and_double_doors.push('');
+          existingData.double_doors_and_windows.push('');
+        }
+
+        // Update arrays at the current page index
+        existingData.complete_doors_and_windows[currentPage] = apiResult.detectionResults.complete_doors_and_windows;
+        existingData.single_doors[currentPage] = apiResult.detectionResults.single_doors;
+        existingData.double_doors[currentPage] = apiResult.detectionResults.double_doors;
+        existingData.windows[currentPage] = apiResult.detectionResults.windows;
+        existingData.single_doors_and_windows[currentPage] = apiResult.detectionResults.single_doors_and_windows;
+        existingData.single_doors_and_double_doors[currentPage] = apiResult.detectionResults.single_doors_and_double_doors;
+        existingData.double_doors_and_windows[currentPage] = apiResult.detectionResults.double_doors_and_windows;
+
+        // Update the project with the modified arrays
+        await fetch(`/api/canvas-projects/${projectId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            canvasData: {
+              ...project.canvasData,
+              ...existingData
+            }
+          })
+        });
+        
+        // Dispatch event to show the results
+        window.dispatchEvent(new CustomEvent('doorsWindowsDetectionComplete'));
+      } catch (error) {
+        console.error('Doors and windows detection API error:', error);
+        toast.error('Failed to process doors and windows detection');
+      } finally {
+        setProcessingFeature(null);
+      }
+    } catch (error) {
+      console.error('Error in doors and windows detection:', error);
+      toast.error('Failed to process doors and windows detection');
+      setProcessingFeature(null);
+    }
   };
   
   const handleWallsDetection = async (enabled: boolean) => {

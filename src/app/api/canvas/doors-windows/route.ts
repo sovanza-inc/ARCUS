@@ -34,11 +34,15 @@ export async function POST(request: Request) {
       return new NextResponse("Current page must be a number", { status: 400 });
     }
 
-    // 1. Convert base64 to Cloudinary URL
+    // 1. Validate and convert base64 to Cloudinary URL
+    if (!imageUrl || typeof imageUrl !== 'string') {
+      return new NextResponse("Image URL is required and must be a string", { status: 400 });
+    }
+
     console.log('Image URL type:', typeof imageUrl);
-    console.log('Image URL starts with:', imageUrl.substring(0, 30) + '...');
+    console.log('Image URL starts with:', imageUrl.substring(0, Math.min(30, imageUrl.length)) + '...');
     
-    let cloudinaryUrl;
+    let cloudinaryUrl: string;
     try {
       cloudinaryUrl = await uploadToCloudinary(imageUrl);
       console.log('Cloudinary URL after upload:', cloudinaryUrl);
@@ -72,7 +76,7 @@ export async function POST(request: Request) {
     const canvasData = project.canvasData as CanvasData;
 
     // 3. Call the external API for detection
-    const apiResponse = await fetch('https://1bbc-103-148-128-18.ngrok-free.app/arcus/arcus_ai', {
+    const apiResponse = await fetch('https://8e9c-103-203-45-133.ngrok-free.app/arcus/arcus_ai', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -87,34 +91,39 @@ export async function POST(request: Request) {
     const detectionResults: DetectionResults = await apiResponse.json();
 
     // 4. Update the project with the new canvas data
-    // Keep the original cloudinary URL in pages array
-    // Create new arrays with the same URL for now
     const updatedCanvasData: CanvasData = {
       ...canvasData,
-      pages: [...canvasData.pages],
-      complete_doors_and_windows: canvasData.complete_doors_and_windows || [],
-      single_doors: canvasData.single_doors || [],
-      double_doors: canvasData.double_doors || [],
-      windows: canvasData.windows || [],
-      single_doors_and_windows: canvasData.single_doors_and_windows || [],
-      single_doors_and_double_doors: canvasData.single_doors_and_double_doors || [],
-      double_doors_and_windows: canvasData.double_doors_and_windows || []
+      // Keep original pages array unchanged
+      pages: canvasData.pages || [],
+      // Ensure arrays exist
+      complete_doors_and_windows: [...(canvasData.complete_doors_and_windows || [])],
+      single_doors: [...(canvasData.single_doors || [])],
+      double_doors: [...(canvasData.double_doors || [])],
+      windows: [...(canvasData.windows || [])],
+      single_doors_and_windows: [...(canvasData.single_doors_and_windows || [])],
+      single_doors_and_double_doors: [...(canvasData.single_doors_and_double_doors || [])],
+      double_doors_and_windows: [...(canvasData.double_doors_and_windows || [])]
     };
 
-    // Replace current page's image in all arrays
-    if (currentPage >= 0 && currentPage < canvasData.pages.length) {
-      // Update pages array with original cloudinary URL
-      updatedCanvasData.pages[currentPage] = cloudinaryUrl;
-      
-      // Update all other arrays with the detection results
-      updatedCanvasData.complete_doors_and_windows[currentPage] = detectionResults.complete_doors_and_windows;
-      updatedCanvasData.single_doors[currentPage] = detectionResults.single_doors;
-      updatedCanvasData.double_doors[currentPage] = detectionResults.double_doors;
-      updatedCanvasData.windows[currentPage] = detectionResults.windows;
-      updatedCanvasData.single_doors_and_windows[currentPage] = detectionResults.single_doors_and_windows;
-      updatedCanvasData.single_doors_and_double_doors[currentPage] = detectionResults.single_doors_and_double_doors;
-      updatedCanvasData.double_doors_and_windows[currentPage] = detectionResults.double_doors_and_windows;
+    // Ensure arrays have enough slots
+    while (updatedCanvasData.complete_doors_and_windows.length <= currentPage) {
+      updatedCanvasData.complete_doors_and_windows.push('');
+      updatedCanvasData.single_doors.push('');
+      updatedCanvasData.double_doors.push('');
+      updatedCanvasData.windows.push('');
+      updatedCanvasData.single_doors_and_windows.push('');
+      updatedCanvasData.single_doors_and_double_doors.push('');
+      updatedCanvasData.double_doors_and_windows.push('');
     }
+
+    // Store detection URLs at the correct index
+    updatedCanvasData.complete_doors_and_windows[currentPage] = detectionResults.complete_doors_and_windows;
+    updatedCanvasData.single_doors[currentPage] = detectionResults.single_doors;
+    updatedCanvasData.double_doors[currentPage] = detectionResults.double_doors;
+    updatedCanvasData.windows[currentPage] = detectionResults.windows;
+    updatedCanvasData.single_doors_and_windows[currentPage] = detectionResults.single_doors_and_windows;
+    updatedCanvasData.single_doors_and_double_doors[currentPage] = detectionResults.single_doors_and_double_doors;
+    updatedCanvasData.double_doors_and_windows[currentPage] = detectionResults.double_doors_and_windows;
 
     await db
       .update(canvasProjects)
@@ -124,15 +133,10 @@ export async function POST(request: Request) {
       .where(eq(canvasProjects.id, projectId));
 
     // 5. Return the updated project data
-    const updatedProject = await db
-      .select()
-      .from(canvasProjects)
-      .where(eq(canvasProjects.id, projectId));
-
     return NextResponse.json({
       success: true,
-      cloudinaryUrl,
-      detectionResults
+      cloudinaryUrl: cloudinaryUrl,
+      detectionResults: detectionResults
     });
   } catch (error) {
     console.error("Error in doors-windows detection:", error);
