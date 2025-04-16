@@ -6,7 +6,7 @@
       "maxDuration": 60
     },
     "src/app/api/canvas/doors-windows/route.ts": {
-      "maxDuration": 60
+      "maxDuration": 300
     },
     "src/app/api/canvas/exclusion-zones/route.ts": {
       "maxDuration": 300
@@ -30,7 +30,7 @@
       "source": "/api/canvas/doors-windows",
       "headers": [
         { "key": "Connection", "value": "keep-alive" },
-        { "key": "Keep-Alive", "value": "timeout=120" }
+        { "key": "Keep-Alive", "value": "timeout=300" }
       ]
     },
     {
