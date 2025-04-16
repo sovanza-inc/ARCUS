@@ -8,9 +8,9 @@ import { CanvasData } from "@/types/canvas";
 import sharp from 'sharp';
 import axios from 'axios';
 
-interface RoomNumberResults {
+interface ExclusionZonesResults {
   status: string;
-  link_room_n_processing: string;
+  link_exclusion_Zones_processing: string;
 }
 
 async function addRedLineToImage(imageUrl: string): Promise<Buffer> {
@@ -97,8 +97,8 @@ export async function POST(request: Request) {
     const project = projects[0];
     const canvasData = project.canvasData as CanvasData;
 
-    // 4. Call the external API for room number detection
-    const apiResponse = await fetch('https://arcus.sovanza.org/arcus/room_n', {
+    // 4. Call the external API for exclusion zones detection
+    const apiResponse = await fetch('https://arcus.sovanza.org/arcus/exclusion_Zones', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -113,22 +113,22 @@ export async function POST(request: Request) {
       throw new Error(`API request failed with status: ${apiResponse.status}`);
     }
 
-    const detectionResults: RoomNumberResults = await apiResponse.json();
+    const detectionResults: ExclusionZonesResults = await apiResponse.json();
 
     // 5. Update the project with the new canvas data
     const updatedCanvasData: CanvasData = {
       ...canvasData,
       pages: canvasData.pages || [],
-      room_n_processing: [...(canvasData.room_n_processing || [''])]
+      exclusion_Zones_processing: [...(canvasData.exclusion_Zones_processing || [''])]
     };
 
     // Ensure array has enough slots
-    while (updatedCanvasData.room_n_processing.length <= currentPage) {
-      updatedCanvasData.room_n_processing.push('');
+    while (updatedCanvasData.exclusion_Zones_processing.length <= currentPage) {
+      updatedCanvasData.exclusion_Zones_processing.push('');
     }
 
     // Store detection URL at the correct index
-    updatedCanvasData.room_n_processing[currentPage] = detectionResults.link_room_n_processing || '';
+    updatedCanvasData.exclusion_Zones_processing[currentPage] = detectionResults.link_exclusion_Zones_processing || '';
 
     await db
       .update(canvasProjects)
@@ -144,7 +144,7 @@ export async function POST(request: Request) {
       detectionResults: detectionResults
     });
   } catch (error) {
-    console.error("Error in room number detection:", error);
+    console.error("Error in exclusion zones detection:", error);
     return NextResponse.json(
       { 
         success: false, 

@@ -70,7 +70,7 @@ export async function POST(request: Request) {
     const canvasData = project.canvasData as CanvasData;
 
     // 3. Call the external API for wall color detection
-    const apiResponse = await fetch('https://8e9c-103-203-45-133.ngrok-free.app/arcus/wall_color', {
+    const apiResponse = await fetch('https://arcus.sovanza.org/arcus/wall_color', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

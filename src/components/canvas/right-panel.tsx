@@ -509,7 +509,88 @@ export default function RightPanel() {
   
   const handleExclusionZonesDetection = async (enabled: boolean) => {
     if (!enabled) return;
-    await simulateProcessing("inclusive-exclusive-zones");
+    
+    try {
+      // First check if we have data in the arrays
+      const response = await fetch(`/api/canvas-projects/${projectId}`);
+      if (!response.ok) throw new Error('Failed to fetch project data');
+      
+      const project = await response.json();
+      const hasExistingData = project.canvasData?.exclusion_Zones_processing?.[currentPage];
+      
+      setProcessingFeature("inclusive-exclusive-zones");
+      
+      try {
+        if (hasExistingData) {
+          // For seed data or existing data, simulate processing
+          await new Promise(resolve => setTimeout(resolve, 60000)); // 1 minute delay
+          window.dispatchEvent(new CustomEvent('exclusionZonesDetectionComplete'));
+          return;
+        }
+
+        // Get the current page's image URL
+        const imageUrl = project.canvasData.pages[currentPage];
+        if (!imageUrl) {
+          throw new Error('No image found for current page');
+        }
+
+        const apiResponse = await fetch(`/api/canvas/exclusion-zones`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            projectId,
+            imageUrl,
+            currentPage
+          })
+        });
+        
+        if (!apiResponse.ok) throw new Error('API call failed');
+        
+        const apiResult = await apiResponse.json();
+        console.log('Exclusion zones detection response:', apiResult); // Log to verify the response
+        
+        // Get existing array or initialize it with empty strings
+        const existingData = {
+          exclusion_Zones_processing: [...(project.canvasData.exclusion_Zones_processing || [''])]
+        };
+
+        // Ensure array has enough slots
+        while (existingData.exclusion_Zones_processing.length <= currentPage) {
+          existingData.exclusion_Zones_processing.push('');
+        }
+
+        // Update array at the current page index
+        existingData.exclusion_Zones_processing[currentPage] = apiResult.detectionResults.link_exclusion_Zones_processing;
+
+        // Update the project with the modified array
+        await fetch(`/api/canvas-projects/${projectId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            canvasData: {
+              ...project.canvasData,
+              ...existingData
+            }
+          })
+        });
+        
+        // Dispatch event to show the results
+        window.dispatchEvent(new CustomEvent('exclusionZonesDetectionComplete'));
+      } catch (error) {
+        console.error('Exclusion zones detection API error:', error);
+        toast.error('Failed to process exclusion zones detection');
+      } finally {
+        setProcessingFeature(null);
+      }
+    } catch (error) {
+      console.error('Error in exclusion zones detection:', error);
+      toast.error('Failed to process exclusion zones detection');
+      setProcessingFeature(null);
+    }
   };
   
   const handleRoomNumberDetection = async (enabled: boolean) => {
