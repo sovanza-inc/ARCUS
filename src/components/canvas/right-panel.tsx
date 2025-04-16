@@ -681,7 +681,88 @@ export default function RightPanel() {
 
   const handleFireAlarmDetection = async (enabled: boolean) => {
     if (!enabled) return;
-    await simulateProcessing("fire-alarm");
+    
+    try {
+      // First check if we have data in the arrays
+      const response = await fetch(`/api/canvas-projects/${projectId}`);
+      if (!response.ok) throw new Error('Failed to fetch project data');
+      
+      const project = await response.json();
+      const hasExistingData = project.canvasData?.fire_alarm_processing?.[currentPage];
+      
+      setProcessingFeature("fire-alarm");
+      
+      try {
+        if (hasExistingData) {
+          // For seed data or existing data, simulate processing
+          await new Promise(resolve => setTimeout(resolve, 60000)); // 1 minute delay
+          window.dispatchEvent(new CustomEvent('fireAlarmDetectionComplete'));
+          return;
+        }
+
+        // Get the current page's image URL
+        const imageUrl = project.canvasData.pages[currentPage];
+        if (!imageUrl) {
+          throw new Error('No image found for current page');
+        }
+
+        const apiResponse = await fetch(`/api/canvas/fire-alarm`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            projectId,
+            imageUrl,
+            currentPage
+          })
+        });
+        
+        if (!apiResponse.ok) throw new Error('API call failed');
+        
+        const apiResult = await apiResponse.json();
+        console.log('Fire alarm detection response:', apiResult); // Log to verify the response
+        
+        // Get existing array or initialize it with empty strings
+        const existingData = {
+          fire_alarm_processing: [...(project.canvasData.fire_alarm_processing || [''])]
+        };
+
+        // Ensure array has enough slots
+        while (existingData.fire_alarm_processing.length <= currentPage) {
+          existingData.fire_alarm_processing.push('');
+        }
+
+        // Update array at the current page index
+        existingData.fire_alarm_processing[currentPage] = apiResult.detectionResults.link_exclusion_Zones_processing;
+
+        // Update the project with the modified array
+        await fetch(`/api/canvas-projects/${projectId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            canvasData: {
+              ...project.canvasData,
+              ...existingData
+            }
+          })
+        });
+        
+        // Dispatch event to show the results
+        window.dispatchEvent(new CustomEvent('fireAlarmDetectionComplete'));
+      } catch (error) {
+        console.error('Fire alarm detection API error:', error);
+        toast.error('Failed to process fire alarm detection');
+      } finally {
+        setProcessingFeature(null);
+      }
+    } catch (error) {
+      console.error('Error in fire alarm detection:', error);
+      toast.error('Failed to process fire alarm detection');
+      setProcessingFeature(null);
+    }
   };
 
   const handleOptionToggle = async (optionId: string) => {
