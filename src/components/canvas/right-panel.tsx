@@ -418,19 +418,93 @@ export default function RightPanel() {
     } catch (error) {
       console.error('Error in wall color detection:', error);
       toast.error('Failed to process wall color detection');
-      setProcessingFeature(null);
     }
-    await simulateProcessing("walls-detection");
   };
-  
+
   const handleRoomAreaDetection = async (enabled: boolean) => {
     if (!enabled) return;
-    await simulateProcessing("room-detection");
-  };
-  
-  const handleRoomNumberDetection = async (enabled: boolean) => {
-    if (!enabled) return;
-    await simulateProcessing("room-number-detection");
+    
+    try {
+      // First check if we have data in the arrays
+      const response = await fetch(`/api/canvas-projects/${projectId}`);
+      if (!response.ok) throw new Error('Failed to fetch project data');
+      
+      const project = await response.json();
+      const hasExistingData = project.canvasData?.room_area_processing?.[currentPage];
+      
+      setProcessingFeature("room-detection");
+      
+      try {
+        if (hasExistingData) {
+          // For seed data or existing data, simulate processing
+          await new Promise(resolve => setTimeout(resolve, 60000)); // 1 minute delay
+          window.dispatchEvent(new CustomEvent('roomAreaDetectionComplete'));
+          return;
+        }
+
+        // Get the current page's image URL
+        const imageUrl = project.canvasData.pages[currentPage];
+        if (!imageUrl) {
+          throw new Error('No image found for current page');
+        }
+
+        const apiResponse = await fetch(`/api/canvas/room-area`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            projectId,
+            imageUrl,
+            currentPage
+          })
+        });
+        
+        if (!apiResponse.ok) throw new Error('API call failed');
+        
+        const apiResult = await apiResponse.json();
+        console.log('Room area detection response:', apiResult); // Log to verify the red line image
+        
+        // Get existing array or initialize it with nulls
+        const existingData = {
+          room_area_processing: [...(project.canvasData.room_area_processing || [null])]
+        };
+
+        // Ensure array has enough slots
+        while (existingData.room_area_processing.length <= currentPage) {
+          existingData.room_area_processing.push(null);
+        }
+
+        // Update array at the current page index
+        existingData.room_area_processing[currentPage] = apiResult.detectionResults.link_room_area_processing;
+
+        // Update the project with the modified array
+        await fetch(`/api/canvas-projects/${projectId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            canvasData: {
+              ...project.canvasData,
+              ...existingData
+            }
+          })
+        });
+        
+        // Dispatch event to show the results
+        window.dispatchEvent(new CustomEvent('roomAreaDetectionComplete'));
+      } catch (error) {
+        console.error('Room area detection API error:', error);
+        toast.error('Failed to process room area detection');
+      } finally {
+        setProcessingFeature(null);
+      }
+    } catch (error) {
+      console.error('Error in room area detection:', error);
+      toast.error('Failed to process room area detection');
+      setProcessingFeature(null);
+    }
   };
   
   const handleExclusionZonesDetection = async (enabled: boolean) => {
@@ -438,6 +512,92 @@ export default function RightPanel() {
     await simulateProcessing("inclusive-exclusive-zones");
   };
   
+  const handleRoomNumberDetection = async (enabled: boolean) => {
+    if (!enabled) return;
+    
+    try {
+      // First check if we have data in the arrays
+      const response = await fetch(`/api/canvas-projects/${projectId}`);
+      if (!response.ok) throw new Error('Failed to fetch project data');
+      
+      const project = await response.json();
+      const hasExistingData = project.canvasData?.room_n_processing?.[currentPage];
+      
+      setProcessingFeature("room-number-detection");
+      
+      try {
+        if (hasExistingData) {
+          // For seed data or existing data, simulate processing
+          await new Promise(resolve => setTimeout(resolve, 60000)); // 1 minute delay
+          window.dispatchEvent(new CustomEvent('roomNumberDetectionComplete'));
+          return;
+        }
+
+        // Get the current page's image URL
+        const imageUrl = project.canvasData.pages[currentPage];
+        if (!imageUrl) {
+          throw new Error('No image found for current page');
+        }
+
+        const apiResponse = await fetch(`/api/canvas/room-n`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            projectId,
+            imageUrl,
+            currentPage
+          })
+        });
+        
+        if (!apiResponse.ok) throw new Error('API call failed');
+        
+        const apiResult = await apiResponse.json();
+        console.log('Room number detection response:', apiResult); // Log to verify the response
+        
+        // Get existing array or initialize it with empty strings
+        const existingData = {
+          room_n_processing: [...(project.canvasData.room_n_processing || [''])]
+        };
+
+        // Ensure array has enough slots
+        while (existingData.room_n_processing.length <= currentPage) {
+          existingData.room_n_processing.push('');
+        }
+
+        // Update array at the current page index
+        existingData.room_n_processing[currentPage] = apiResult.detectionResults.link_room_n_processing;
+
+        // Update the project with the modified array
+        await fetch(`/api/canvas-projects/${projectId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            canvasData: {
+              ...project.canvasData,
+              ...existingData
+            }
+          })
+        });
+        
+        // Dispatch event to show the results
+        window.dispatchEvent(new CustomEvent('roomNumberDetectionComplete'));
+      } catch (error) {
+        console.error('Room number detection API error:', error);
+        toast.error('Failed to process room number detection');
+      } finally {
+        setProcessingFeature(null);
+      }
+    } catch (error) {
+      console.error('Error in room number detection:', error);
+      toast.error('Failed to process room number detection');
+      setProcessingFeature(null);
+    }
+  };
+
   const handleFireAlarmDetection = async (enabled: boolean) => {
     if (!enabled) return;
     await simulateProcessing("fire-alarm");
