@@ -339,6 +339,87 @@ export default function RightPanel() {
   
   const handleWallsDetection = async (enabled: boolean) => {
     if (!enabled) return;
+    
+    try {
+      // First check if we have data in the arrays
+      const response = await fetch(`/api/canvas-projects/${projectId}`);
+      if (!response.ok) throw new Error('Failed to fetch project data');
+      
+      const project = await response.json();
+      const hasExistingData = project.canvasData?.wall_color_processing?.[currentPage];
+      
+      setProcessingFeature("walls-detection");
+      
+      try {
+        if (hasExistingData) {
+          // For seed data or existing data, simulate processing
+          await new Promise(resolve => setTimeout(resolve, 60000)); // 1 minute delay
+          window.dispatchEvent(new CustomEvent('wallsDetectionComplete'));
+          return;
+        }
+
+        // Get the current page's image URL
+        const imageUrl = project.canvasData.pages[currentPage];
+        if (!imageUrl) {
+          throw new Error('No image found for current page');
+        }
+
+        const apiResponse = await fetch(`/api/canvas/wall-color`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            projectId,
+            imageUrl,
+            currentPage
+          })
+        });
+        
+        if (!apiResponse.ok) throw new Error('API call failed');
+        
+        const apiResult = await apiResponse.json();
+        
+        // Get existing array or initialize it with nulls
+        const existingData = {
+          wall_color_processing: [...(project.canvasData.wall_color_processing || [null])]
+        };
+
+        // Ensure array has enough slots
+        while (existingData.wall_color_processing.length <= currentPage) {
+          existingData.wall_color_processing.push(null);
+        }
+
+        // Update array at the current page index
+        existingData.wall_color_processing[currentPage] = apiResult.detectionResults.wall_color_link;
+
+        // Update the project with the modified array
+        await fetch(`/api/canvas-projects/${projectId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            canvasData: {
+              ...project.canvasData,
+              ...existingData
+            }
+          })
+        });
+        
+        // Dispatch event to show the results
+        window.dispatchEvent(new CustomEvent('wallsDetectionComplete'));
+      } catch (error) {
+        console.error('Wall color detection API error:', error);
+        toast.error('Failed to process wall color detection');
+      } finally {
+        setProcessingFeature(null);
+      }
+    } catch (error) {
+      console.error('Error in wall color detection:', error);
+      toast.error('Failed to process wall color detection');
+      setProcessingFeature(null);
+    }
     await simulateProcessing("walls-detection");
   };
   
