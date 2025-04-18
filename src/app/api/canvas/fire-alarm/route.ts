@@ -98,7 +98,7 @@ export async function POST(request: Request) {
     const canvasData = project.canvasData as CanvasData;
 
     // 4. Call the external API for fire alarm detection
-    const apiResponse = await fetch('https://arcus.sovanza.org/arcus/Alram', {
+    const apiResponse = await fetch('https://1e3f-2a02-4780-28-6eb6-00-1.ngrok-free.app/arcus/Alram', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

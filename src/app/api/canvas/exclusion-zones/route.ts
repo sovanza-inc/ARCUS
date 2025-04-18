@@ -102,7 +102,7 @@ export async function POST(request: Request) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 120000); // 2 minutes timeout
 
-    const apiResponse = await fetch('https://arcus.sovanza.org/arcus/exclusion_Zones', {
+    const apiResponse = await fetch('https://1e3f-2a02-4780-28-6eb6-00-1.ngrok-free.app/arcus/exclusion_Zones', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
